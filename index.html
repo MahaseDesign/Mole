@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>⚡ Binary Whack: Pro Edition</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background: linear-gradient(145deg, #0f2b1a 0%, #051a0c 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: 'Segoe UI', 'Poppins', monospace;
+      margin: 0;
+      padding: 10px;
+    }
+
+    .game-wrapper {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+      max-width: 1300px;
+      width: 100%;
+    }
+
+    .quiz-arena {
+      background: rgba(20, 15, 10, 0.85);
+      backdrop-filter: blur(4px);
+      border-radius: 40px;
+      padding: 20px;
+      box-shadow: 0 25px 40px rgba(0, 0, 0, 0.6), inset 0 1px 2px rgba(255,255,200,0.2);
+      border: 2px solid #ffd966;
+      flex: 2;
+      min-width: 300px;
+      transition: transform 0.1s;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-8px); }
+      75% { transform: translateX(8px); }
+    }
+    .shake-it { animation: shake 0.15s ease-in-out 0s 2; }
+
+    .leaderboard-panel {
+      background: #1f2a18e6;
+      border-radius: 40px;
+      padding: 20px;
+      width: 100%;
+      max-width: 300px;
+      border: 1px solid #ffd966;
+    }
+
+    .leaderboard-panel h3 {
+      text-align: center;
+      color: #ffdd99;
+      margin: 0 0 15px 0;
+      font-size: 1.4rem;
+    }
+
+    .leaderboard-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .leaderboard-list li {
+      background: #2e241f;
+      margin: 8px 0;
+      padding: 8px 12px;
+      border-radius: 40px;
+      color: #ffecb3;
+      display: flex;
+      justify-content: space-between;
+      font-family: monospace;
+    }
+
+    .game-panel {
+      background: #7b3f1a;
+      border-radius: 40px;
+      padding: 15px;
+      box-shadow: inset 0 0 0 5px #c9843e, inset 0 0 0 10px #a55c2a, 0 15px 25px black;
+    }
+
+    .question-area {
+      background: #2c241aff;
+      margin-bottom: 15px;
+      padding: 15px;
+      border-radius: 30px;
+      text-align: center;
+    }
+
+    .question-text {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: #ffecb3;
+      background: #00000066;
+      padding: 10px;
+      border-radius: 20px;
+      display: inline-block;
+    }
+
+    .stats {
+      display: flex;
+      justify-content: space-between;
+      background: #fef1cf;
+      border-radius: 20px;
+      padding: 10px;
+      margin-bottom: 15px;
+      gap: 5px;
+    }
+
+    .stat-card {
+      background: #2e241f;
+      padding: 5px 10px;
+      border-radius: 15px;
+      color: #ffdd99;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 0.8rem;
+      flex: 1;
+    }
+
+    .stat-value {
+      font-size: 1.4rem;
+      font-weight: 800;
+      font-family: monospace;
+    }
+
+    .holes-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      padding: 10px 0;
+    }
+
+    .hole {
+      background: radial-gradient(circle at 35% 25%, #3e2a1f, #1f140c);
+      aspect-ratio: 1 / 1;
+      border-radius: 50%;
+      box-shadow: inset 0 5px 5px rgba(0,0,0,0.6), 0 0 0 5px #624a2e;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .mole-answer {
+      background: #f3c26b;
+      color: #2d2b1f;
+      font-weight: bold;
+      padding: 5px;
+      border-radius: 15px;
+      font-size: 1rem;
+      width: 85%;
+      text-align: center;
+      box-shadow: 0 4px 0 #aa7733;
+    }
+
+    .hole.correct-flash { background: #4caf50; box-shadow: 0 0 15px #4caf50; }
+    .hole.wrong-flash { background: #f44336; box-shadow: 0 0 15px #f44336; }
+
+    .new-game-btn {
+      background: #fdca40;
+      border: none;
+      font-size: 1rem;
+      font-weight: bold;
+      padding: 10px 20px;
+      border-radius: 20px;
+      width: 100%;
+      margin-top: 10px;
+      box-shadow: 0 4px 0 #b4621a;
+    }
+
+    footer { text-align: center; font-size: 0.7rem; color: #ecd489; margin-top: 10px; }
+  </style>
+</head>
+<body>
+<div class="game-wrapper">
+  <div class="quiz-arena" id="mainArena">
+    <div class="game-panel">
+      <div class="question-area">
+        <div class="question-text" id="questionText">BINARY WHACK</div>
+        <div id="difficultyTag" style="color:#ffd966; font-size:0.8rem; margin-top:5px;">LEVEL 1</div>
+      </div>
+      <div class="stats">
+        <div class="stat-card"><span>SCORE</span><span class="stat-value" id="scoreValue">0</span></div>
+        <div class="stat-card"><span>TIME</span><span class="stat-value" id="timerValue">0.0</span></div>
+        <div class="stat-card"><span>BEST</span><span class="stat-value" id="bestTimeDisplay">—</span></div>
+      </div>
+      <div class="holes-grid" id="holesGrid"></div>
+      <div id="gameStatusMsg" style="color:#ffe3aa; text-align:center; font-weight:bold; margin-top:10px;">PRESS START</div>
+      <button class="new-game-btn" id="newGameBtn">🕹️ START GAME</button>
+      <footer>Wrong = +2s & -1 Score | 10 pts to Win</footer>
+    </div>
+  </div>
+  <div class="leaderboard-panel">
+    <h3>🏆 BEST TIMES 🏆</h3>
+    <ul class="leaderboard-list" id="leaderboardList">
+      <li><span>1.</span><span>--</span></li>
+      <li><span>2.</span><span>--</span></li>
+      <li><span>3.</span><span>--</span></li>
+    </ul>
+    <button id="resetLeaderboardBtn" style="width:100%; margin-top:10px; background:none; color:#ffdd99; border:1px solid #7a5a3a; border-radius:10px;">Reset</button>
+  </div>
+</div>
+
+<script>
+  const QUESTION_BANK = [
+    { text: "binary 0001", correct: "1", wrongs: ["0", "2", "3"] },
+    { text: "binary 0010", correct: "2", wrongs: ["1", "3", "4"] },
+    { text: "binary 0100", correct: "4", wrongs: ["3", "5", "8"] },
+    { text: "binary 1000", correct: "8", wrongs: ["7", "9", "10"] },
+    { text: "binary 1010", correct: "10", wrongs: ["9", "11", "12"] },
+    { text: "binary 1111", correct: "15", wrongs: ["14", "0", "16"] },
+    { text: "decimal 3", correct: "0011", wrongs: ["0100", "0010", "0110"] },
+    { text: "decimal 5", correct: "0101", wrongs: ["0110", "0100", "1010"] },
+    { text: "decimal 7", correct: "0111", wrongs: ["1000", "0110", "1011"] },
+    { text: "decimal 12", correct: "1100", wrongs: ["1011", "1101", "1111"] }
+  ];
+
+  const mainArena = document.getElementById('mainArena');
+  const holesGrid = document.getElementById('holesGrid');
+  const scoreSpan = document.getElementById('scoreValue');
+  const timerSpan = document.getElementById('timerValue');
+  const bestTimeDisplay = document.getElementById('bestTimeDisplay');
+  const gameStatusSpan = document.getElementById('gameStatusMsg');
+  const questionTextEl = document.getElementById('questionText');
+  const difficultyTag = document.getElementById('difficultyTag');
+
+  let holes = [], currentAnswers = [], gameActive = false, currentScore = 0, currentTime = 0;
+  let timerInterval = null, lock = false, combo = 0, fastestTimes = [];
+
+  function updateLeaderboardUI() {
+    const sorted = [...fastestTimes].sort((a,b) => a.time - b.time).slice(0,3);
+    const items = document.querySelectorAll('#leaderboardList li');
+    items.forEach((li, i) => li.querySelector('span:last-child').innerText = sorted[i] ? sorted[i].time.toFixed(1)+'s' : '--');
+    bestTimeDisplay.innerText = sorted[0] ? sorted[0].time.toFixed(1)+'s' : '—';
+  }
+
+  function loadNextQuestion() {
+    if (!gameActive) return;
+    holes.forEach(h => { h.innerHTML = ''; h.className = 'hole'; });
+    currentAnswers = [];
+    
+    const q = QUESTION_BANK[Math.floor(Math.random() * QUESTION_BANK.length)];
+    questionTextEl.innerText = q.text;
+
+    let moleCount = currentScore < 4 ? 2 : (currentScore < 7 ? 3 : 4);
+    difficultyTag.innerText = `LEVEL ${moleCount-1}`;
+
+    let opts = [{t: q.correct, c: true}];
+    let wPool = [...q.wrongs].sort(() => 0.5-Math.random());
+    for(let i=0; i<moleCount-1; i++) opts.push({t: wPool[i], c: false});
+    
+    opts.sort(() => 0.5-Math.random());
+    let hIdx = [...Array(9).keys()].sort(() => 0.5-Math.random());
+
+    opts.forEach((opt, i) => {
+      const h = holes[hIdx[i]];
+      h.innerHTML = `<div class="mole-answer">${opt.t}</div>`;
+      currentAnswers.push({ idx: hIdx[i], isCorrect: opt.c });
+    });
+  }
+
+  function handleWhack(i) {
+    if (!gameActive || lock) return;
+    const ans = currentAnswers.find(a => a.idx === i);
+    if (!ans) return;
+
+    if (ans.isCorrect) {
+      combo++; currentScore++;
+      holes[i].classList.add('correct-flash');
+      if (combo > 2) currentTime = Math.max(0, currentTime - 0.3);
+      if (currentScore >= 10) {
+        gameActive = false; clearInterval(timerInterval);
+        fastestTimes.push({time: currentTime});
+        localStorage.setItem('bin_fastest', JSON.stringify(fastestTimes));
+        updateLeaderboardUI();
+        gameStatusSpan.innerText = "🏆 WINNER!";
+      } else {
+        lock = true; setTimeout(() => { loadNextQuestion(); lock = false; }, 200);
+      }
+    } else {
+      combo = 0; currentScore = Math.max(0, currentScore - 1); currentTime += 2;
+      mainArena.classList.add('shake-it');
+      holes[i].classList.add('wrong-flash');
+      setTimeout(() => mainArena.classList.remove('shake-it'), 300);
+      lock = true; setTimeout(() => { loadNextQuestion(); lock = false; }, 400);
+    }
+    scoreSpan.innerText = currentScore;
+  }
+
+  document.getElementById('newGameBtn').onclick = () => {
+    gameActive = true; currentScore = 0; currentTime = 0; combo = 0;
+    scoreSpan.innerText = "0"; timerSpan.innerText = "0.0";
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => { currentTime += 0.1; timerSpan.innerText = currentTime.toFixed(1); }, 100);
+    loadNextQuestion();
+    gameStatusMsg.innerText = "WHACK!";
+  };
+
+  document.getElementById('resetLeaderboardBtn').onclick = () => { fastestTimes = []; localStorage.removeItem('bin_fastest'); updateLeaderboardUI(); };
+
+  for (let i = 0; i < 9; i++) {
+    const h = document.createElement('div'); h.className = 'hole';
+    h.onclick = () => handleWhack(i);
+    holesGrid.appendChild(h);
+    holes.push(h);
+  }
+
+  const stored = localStorage.getItem('bin_fastest');
+  if (stored) fastestTimes = JSON.parse(stored);
+  updateLeaderboardUI();
+</script>
+</body>
+</html>
