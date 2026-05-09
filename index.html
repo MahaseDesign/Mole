@@ -372,6 +372,11 @@
     updateLeaderboardUI();
     const best = Math.max(...sessionScores);
     const isNewBest = currentScore === best;
+    if (isNewBest && sessionScores.length > 1) {
+      soundNewBest();
+    } else {
+      soundGameOver();
+    }
     gameStatusSpan.innerText = isNewBest && sessionScores.length > 1
       ? `🏆 NEW BEST! ${currentScore} correct!`
       : `⏱ Done! You got ${currentScore} correct`;
@@ -391,6 +396,7 @@
       currentScore++;
       scoreSpan.innerText = currentScore;
       holes[i].classList.add('correct-flash');
+      soundCorrect();
       lock = true;
       setTimeout(() => { loadNextQuestion(); lock = false; }, 200);
     } else {
@@ -399,6 +405,7 @@
       scoreSpan.innerText = currentScore;
       mainArena.classList.add('shake-it');
       holes[i].classList.add('wrong-flash');
+      soundWrong();
       setTimeout(() => mainArena.classList.remove('shake-it'), 300);
       lock = true;
       setTimeout(() => { loadNextQuestion(); lock = false; }, 350);
@@ -417,10 +424,14 @@
     timerInterval = setInterval(() => {
       timeLeft--;
       timerSpan.innerText = timeLeft;
-      if (timeLeft <= 10) timerSpan.classList.add('low');
+      if (timeLeft <= 10) {
+        timerSpan.classList.add('low');
+        soundBeep(timeLeft <= 5);
+      }
       if (timeLeft <= 0) endGame();
     }, 1000);
     loadNextQuestion();
+    soundStart();
     gameStatusSpan.innerText = 'WHACK THE RIGHT ANSWER!';
     document.getElementById('newGameBtn').textContent = '🔁 RESTART';
   };
@@ -434,6 +445,89 @@
   }
 
   updateLeaderboardUI();
+
+  // ── SOUND ENGINE (Web Audio API, no external files) ──────────────────────
+  let audioCtx = null;
+  function getCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  // Generic tone builder
+  function playTone({ freq = 440, freq2, type = 'square', vol = 0.3, attack = 0.005,
+                      decay = 0.08, sustain = 0.1, release = 0.12, delay = 0 } = {}) {
+    const ctx = getCtx();
+    const t = ctx.currentTime + delay;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t);
+    if (freq2) osc.frequency.exponentialRampToValueAtTime(freq2, t + attack + decay + sustain);
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(vol, t + attack);
+    gain.gain.linearRampToValueAtTime(vol * 0.7, t + attack + decay);
+    gain.gain.setValueAtTime(vol * 0.7, t + attack + decay + sustain);
+    gain.gain.linearRampToValueAtTime(0, t + attack + decay + sustain + release);
+    osc.start(t);
+    osc.stop(t + attack + decay + sustain + release + 0.01);
+  }
+
+  // Thud/smack noise burst (for the mallet hit)
+  function playThud(delay = 0) {
+    const ctx = getCtx();
+    const t = ctx.currentTime + delay;
+    const bufSize = ctx.sampleRate * 0.08;
+    const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufSize, 3);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass'; filter.frequency.value = 280;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.55, t);
+    gain.gain.linearRampToValueAtTime(0, t + 0.09);
+    src.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+    src.start(t); src.stop(t + 0.1);
+  }
+
+  function soundCorrect() {
+    playThud();
+    playTone({ freq: 520, freq2: 780, type: 'triangle', vol: 0.22, attack: 0.005, decay: 0.05, sustain: 0.06, release: 0.1 });
+    playTone({ freq: 780, type: 'triangle', vol: 0.16, attack: 0.005, decay: 0.04, sustain: 0.05, release: 0.08, delay: 0.07 });
+  }
+
+  function soundWrong() {
+    playThud();
+    playTone({ freq: 220, freq2: 140, type: 'sawtooth', vol: 0.25, attack: 0.005, decay: 0.1, sustain: 0.08, release: 0.15 });
+    playTone({ freq: 160, type: 'square', vol: 0.18, attack: 0.01, decay: 0.08, sustain: 0.1, release: 0.12, delay: 0.06 });
+  }
+
+  function soundStart() {
+    [0, 0.12, 0.24].forEach((d, i) => {
+      playTone({ freq: [330, 440, 660][i], type: 'triangle', vol: 0.2, attack: 0.01, decay: 0.05, sustain: 0.06, release: 0.08, delay: d });
+    });
+  }
+
+  function soundBeep(urgent = false) {
+    playTone({ freq: urgent ? 880 : 660, type: 'sine', vol: urgent ? 0.28 : 0.18,
+               attack: 0.005, decay: 0.03, sustain: 0.04, release: 0.06 });
+  }
+
+  function soundGameOver() {
+    // Descending sad trombone-ish
+    const notes = [330, 294, 262, 220];
+    notes.forEach((f, i) => playTone({ freq: f, type: 'sawtooth', vol: 0.22, attack: 0.01, decay: 0.08, sustain: 0.12, release: 0.18, delay: i * 0.18 }));
+  }
+
+  function soundNewBest() {
+    // Ascending fanfare
+    const notes = [523, 659, 784, 1047];
+    notes.forEach((f, i) => playTone({ freq: f, type: 'triangle', vol: 0.22, attack: 0.01, decay: 0.05, sustain: 0.1, release: 0.12, delay: i * 0.13 }));
+  }
+  // ── END SOUND ENGINE ─────────────────────────────────────────────────────
 </script>
 </body>
 </html>
